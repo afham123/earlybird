@@ -43,6 +43,9 @@ func TestLLMScanCallsEndpointAndParsesResponse(t *testing.T) {
 		if len(req.Messages) != 2 {
 			t.Fatalf("message count = %d, want 2", len(req.Messages))
 		}
+		if req.Messages[0].Content != "custom prompt" {
+			t.Fatalf("system prompt = %q, want custom prompt", req.Messages[0].Content)
+		}
 		if !strings.Contains(req.Messages[1].Content, "2: api_key = secret-value") {
 			t.Fatalf("prompt did not include numbered file lines: %q", req.Messages[1].Content)
 		}
@@ -61,6 +64,7 @@ func TestLLMScanCallsEndpointAndParsesResponse(t *testing.T) {
 		LLMEndpoint:       server.URL,
 		LLMAPIKey:         "test-key",
 		LLMModel:          "gpt-test",
+		LLMSystemPrompt:   "custom prompt",
 		LLMTimeoutSeconds: 5,
 		LLMMaxLines:       10,
 		LLMMaxBytes:       2048,
@@ -101,5 +105,11 @@ func TestValidateLLMConfigRequiresAPIKey(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "api key") {
 		t.Fatalf("validateLLMConfig() error = %v, want api key message", err)
+	}
+}
+
+func TestLLMSystemPromptFallsBackToDefault(t *testing.T) {
+	if got := llmSystemPrompt(&cfgReader.EarlybirdConfig{}); got != cfgReader.DefaultLLMSystemPrompt {
+		t.Fatalf("llmSystemPrompt() = %q, want default prompt", got)
 	}
 }

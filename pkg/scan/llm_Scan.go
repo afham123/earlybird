@@ -17,6 +17,13 @@ import (
 
 var defaultLLMHTTPClient llmHTTPClient = &http.Client{}
 
+func llmSystemPrompt(cfg *cfgReader.EarlybirdConfig) string {
+	if cfg != nil && cfg.LLMSystemPrompt != "" {
+		return cfg.LLMSystemPrompt
+	}
+	return cfgReader.DefaultLLMSystemPrompt
+}
+
 func llm_scan(cfg *cfgReader.EarlybirdConfig, scanjob LLMJob) ([]LLMFinding, error) {
 	if err := validateLLMConfig(cfg); err != nil {
 		return nil, err
@@ -103,7 +110,7 @@ func callLLMChunk(client llmHTTPClient, cfg *cfgReader.EarlybirdConfig, scanjob 
 		Messages: []llmMessage{
 			{
 				Role:    "system",
-				Content: "You review source code for likely hard-coded credentials or secrets. Return JSON only with the top-level field findings. Each finding must contain line, credential_type, confidence, candidate, and reason. Confidence must be one of low, medium, or high. Ignore placeholders, obvious examples, comments describing documentation samples, and non-secret identifiers.",
+				Content: llmSystemPrompt(cfg),
 			},
 			{
 				Role:    "user",
