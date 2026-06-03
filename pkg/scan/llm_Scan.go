@@ -104,25 +104,9 @@ func buildLLMFileChunks(fileLines []string, maxLines int, maxBytes int) []llmFil
 }
 
 func callLLMChunk(client llmHTTPClient, cfg *cfgReader.EarlybirdConfig, scanjob LLMJob, chunk llmFileChunk) ([]LLMFinding, error) {
-	requestBody := llmChatCompletionRequest{
-		Model:       cfg.LLMModel,
-		Temperature: 0,
-		Messages: []llmMessage{
-			{
-				Role:    "system",
-				Content: llmSystemPrompt(cfg),
-			},
-			{
-				Role:    "user",
-				Content: buildLLMUserPrompt(scanjob, chunk),
-			},
-		},
-		ResponseFormat: &llmResponseFormat{Type: "json_object"},
-	}
-
-	payload, err := json.Marshal(requestBody)
+	payload, err := buildLLMRequestBody(cfg, scanjob, chunk)
 	if err != nil {
-		return nil, fmt.Errorf("marshal llm request: %w", err)
+		return nil, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.LLMTimeoutSeconds)*time.Second)
@@ -132,9 +116,13 @@ func callLLMChunk(client llmHTTPClient, cfg *cfgReader.EarlybirdConfig, scanjob 
 	if err != nil {
 		return nil, fmt.Errorf("build llm request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+cfg.LLMAPIKey)
+	if isGeminiModel(cfg.LLMModel) {
+		req.Header.Set("X-goog-api-key", cfg.LLMAPIKey)
+	} else {
+		req.Header.Set("Accept", "application/json")
+		req.Header.Set("Authorization", "Bearer "+cfg.LLMAPIKey)
+	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -150,24 +138,30 @@ func callLLMChunk(client llmHTTPClient, cfg *cfgReader.EarlybirdConfig, scanjob 
 		return nil, fmt.Errorf("llm request failed with status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	var completion llmChatCompletionResponse
+	var completion any
 	if err := json.Unmarshal(body, &completion); err != nil {
 		return nil, fmt.Errorf("decode llm response: %w", err)
 	}
-	if completion.Error != nil {
-		return nil, fmt.Errorf("llm api error: %s", completion.Error.Message)
-	}
-	if len(completion.Choices) == 0 {
-		return nil, fmt.Errorf("llm response did not include any choices")
-	}
+	// if completion.Error != nil {
+	// 	return nil, fmt.Errorf("llm api error: %s", completion.Error.Message)
+	// }
 
-	var structured llmStructuredResponse
-	content := completion.Choices[0].Message.Content
-	if err := json.Unmarshal([]byte(content), &structured); err != nil {
-		return nil, fmt.Errorf("decode llm structured response: %w", err)
-	}
+	// content := ""
+	// if len(completion.Choices) > 0 {
+	// 	content = completion.Choices[0].Message.Content
+	// } else if len(completion.Candidates) > 0 {
+	// 	content = completion.Candidates[0].Content
+	// } else {
+	// 	return nil, fmt.Errorf("llm response did not include any choices or candidates")
+	// }
 
-	return structured.Findings, nil
+	// var structured llmStructuredResponse
+	// if err := json.Unmarshal([]byte(content), &structured); err != nil {
+	// 	return nil, fmt.Errorf("decode llm structured response: %w", err)
+	// }
+	fmt.Printf("Response body: %s", string(body))
+
+	return nil, nil
 }
 
 func buildLLMUserPrompt(scanjob LLMJob, chunk llmFileChunk) string {
@@ -188,6 +182,46 @@ func buildLLMUserPrompt(scanjob LLMJob, chunk llmFileChunk) string {
 	}
 
 	return builder.String()
+}
+
+func isGeminiModel(model string) bool {
+	return strings.Contains(strings.ToLower(model), "gemini")
+}
+
+func buildLLMRequestBody(cfg *cfgReader.EarlybirdConfig, scanjob LLMJob, chunk llmFileChunk) ([]byte, error) {
+	if isGeminiModel(cfg.LLMModel) {
+		requestBody := LlmGeminiRequest{
+			Contents: []GeminiLLMMessage{
+				{
+					Role:  "user",
+					Parts: []Parts{{Text: llmSystemPrompt(cfg)}},
+				},
+				{
+					Role:  "user",
+					Parts: []Parts{{Text: buildLLMUserPrompt(scanjob, chunk)}},
+				},
+			},
+		}
+		return json.Marshal(requestBody)
+	}
+
+	requestBody := llmChatCompletionRequest{
+		Model:       cfg.LLMModel,
+		Temperature: 0,
+		Messages: []llmMessage{
+			{
+				Role:    "system",
+				Content: llmSystemPrompt(cfg),
+			},
+			{
+				Role:    "user",
+				Content: buildLLMUserPrompt(scanjob, chunk),
+			},
+		},
+		ResponseFormat: &llmResponseFormat{Type: "json_object"},
+	}
+
+	return json.Marshal(requestBody)
 }
 
 func logLLMFindings(cfg *cfgReader.EarlybirdConfig, scanjob LLMJob, findings []LLMFinding) {

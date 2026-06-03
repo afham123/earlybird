@@ -89,6 +89,71 @@ func TestLLMScanCallsEndpointAndParsesResponse(t *testing.T) {
 	}
 }
 
+func TestLLMScanBuildsGeminiRequestAndParsesResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("X-goog-api-key"); got != "test-key" {
+			t.Fatalf("X-goog-api-key header = %q, want test-key", got)
+		}
+
+		var req map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("Decode() error = %v", err)
+		}
+		if _, ok := req["model"]; ok {
+			t.Fatal("did not expect gemini request to include model")
+		}
+		if _, ok := req["temperature"]; ok {
+			t.Fatal("did not expect gemini request to include temperature")
+		}
+		if _, ok := req["input"]; ok {
+			t.Fatal("did not expect gemini request to include input")
+		}
+		if _, ok := req["contents"]; !ok {
+			t.Fatal("expected gemini request to include contents")
+		}
+		if _, ok := req["messages"]; ok {
+			t.Fatal("did not expect gemini request to include messages")
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"candidates": []map[string]string{{
+				"content": `{"findings":[{"line":2,"credential_type":"api_key","confidence":"high","candidate":"secret-value","reason":"looks like a hard-coded credential"}]}`,
+			}},
+		})
+	}))
+	defer server.Close()
+
+	cfg := &cfgReader.EarlybirdConfig{
+		EnableLLMScan:     true,
+		LLMEndpoint:       server.URL,
+		LLMAPIKey:         "test-key",
+		LLMModel:          "gemini-test",
+		LLMSystemPrompt:   "custom prompt",
+		LLMTimeoutSeconds: 5,
+		LLMMaxLines:       10,
+		LLMMaxBytes:       2048,
+	}
+
+	findings, err := llm_scan(cfg, LLMJob{
+		FileName:  "sample.env",
+		FilePath:  "/tmp/sample.env",
+		FileLines: []string{"username = app", "api_key = secret-value"},
+	})
+	if err != nil {
+		t.Fatalf("llm_scan() error = %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("llm_scan() findings = %d, want 1", len(findings))
+	}
+	if findings[0].Line != 2 {
+		t.Fatalf("finding line = %d, want 2", findings[0].Line)
+	}
+	if findings[0].CredentialType != "api_key" {
+		t.Fatalf("finding credential type = %q, want api_key", findings[0].CredentialType)
+	}
+}
+
 func TestValidateLLMConfigRequiresAPIKey(t *testing.T) {
 	cfg := &cfgReader.EarlybirdConfig{
 		EnableLLMScan:     true,
