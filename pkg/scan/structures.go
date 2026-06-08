@@ -102,7 +102,7 @@ type llmMessage struct {
 	Content string `json:"content"`
 }
 
-type GeminiLLMMessage struct {
+type GeminiContent struct {
 	Role  string  `json:"role"`
 	Parts []Parts `json:"parts"`
 }
@@ -122,8 +122,25 @@ type llmChatCompletionRequest struct {
 	ResponseFormat *llmResponseFormat `json:"response_format,omitempty"`
 }
 
-type LlmGeminiRequest struct {
-	Contents []GeminiLLMMessage `json:"contents"`
+type GeminiRequestBody struct {
+	Contents []GeminiContent `json:"contents"`
+}
+
+type GeminiResponseBody struct {
+	Candidates    []llmGeminiCandidate `json:"candidates,omitempty"`
+	ModelVersion  string               `json:"model_version,omitempty"`
+	ResponseId    string               `json:"response_id,omitempty"`
+	UsageMetadata struct {
+		PromptTokenCount     int    `json:"prompt_tokens"`
+		CandidatesTokenCount int    `json:"candidates_token_count"`
+		TotalTokenCount      int    `json:"total_tokens"`
+		ThoughtsTokenCount   int    `json:"thoughts_token_count,omitempty"`
+		ServiceTier          string `json:"service_tier,omitempty"`
+		PromptTokenDetails   struct {
+			Modality   string `json:"modality"`
+			TokenCount int    `json:"token_count"`
+		} `json:"completion_tokens"`
+	} `json:"usage_metadata,omitempty"`
 }
 
 type llmChatCompletionChoice struct {
