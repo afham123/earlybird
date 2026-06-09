@@ -18,7 +18,9 @@ package cfgreader
 
 import "regexp"
 
-const DefaultLLMSystemPrompt = "You review and analyze source code for likely hard-coded credentials or secrets. Return JSON only with the top-level field findings. Each finding must contain line, credential_type, confidence(in %), criticality(1-4, 4 being highest), and reason. Ignore placeholders, obvious examples, comments describing documentation samples, and non-secret identifiers."
+const DefaultLLMSystemPrompt = "You analyze source code for likely hard-coded credentials or secrets. Return JSON only with the top-level field findings. Ex {line:3, credential_type:password, confidence: 95% , criticality: 4, reason: reason_for_flag, Candidate: <flagged_value>}."
+
+// const DefaultLLMSystemPrompt = "You analyze source code for likely hard-coded credentials or secrets. Return JSON only with the top-level field findings. Each finding must contain line, credential_type, confidence(in %), criticality(1-4, 4 being highest), and reason. Ignore placeholders, obvious examples, comments describing documentation samples, and non-secret identifiers."
 
 // ServerConfig is the timeout configuration for the Earlybird REST API server
 type ServerConfig struct {

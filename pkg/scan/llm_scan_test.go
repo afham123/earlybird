@@ -117,8 +117,10 @@ func TestLLMScanBuildsGeminiRequestAndParsesResponse(t *testing.T) {
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"candidates": []map[string]string{{
-				"content": `{"findings":[{"line":2,"credential_type":"api_key","confidence":"high","candidate":"secret-value","reason":"looks like a hard-coded credential"}]}`,
+			"candidates": []map[string]any{{
+				"content": map[string]any{
+					"text": "```json\n{\"findings\":[{\"line\":2,\"credential_type\":\"api_key\",\"confidence\":\"high\",\"candidate\":\"secret-value\",\"reason\":\"looks like a hard-coded credential\"}]}\n```",
+				},
 			}},
 		})
 	}))
@@ -176,5 +178,43 @@ func TestValidateLLMConfigRequiresAPIKey(t *testing.T) {
 func TestLLMSystemPromptFallsBackToDefault(t *testing.T) {
 	if got := llmSystemPrompt(&cfgReader.EarlybirdConfig{}); got != cfgReader.DefaultLLMSystemPrompt {
 		t.Fatalf("llmSystemPrompt() = %q, want default prompt", got)
+	}
+}
+
+func TestLLMFindingUnmarshalAcceptsNumericConfidence(t *testing.T) {
+	var finding LLMFinding
+	jsonData := []byte(`{"line":1,"credential_type":"api_key","confidence":80,"candidate":"secret-value","reason":"detected"}`)
+	if err := json.Unmarshal(jsonData, &finding); err != nil {
+		t.Fatalf("unmarshal LLMFinding = %v", err)
+	}
+	if finding.Confidence != "80" {
+		t.Fatalf("confidence = %q, want 80", string(finding.Confidence))
+	}
+}
+
+func TestGetLLMFindingLineTextReturnsActualLine(t *testing.T) {
+	lines := []string{"username = app", "api_key = secret-value"}
+	if got := getLLMFindingLineText(lines, 2); got != "api_key = secret-value" {
+		t.Fatalf("getLLMFindingLineText() = %q, want %q", got, "api_key = secret-value")
+	}
+}
+
+func TestGetLLMFindingValueFallsBackToCandidate(t *testing.T) {
+	finding := LLMFinding{
+		Line:      0,
+		Candidate: "secret-value",
+	}
+	if got := getLLMFindingValue([]string{"username = app", "api_key = secret-value"}, finding); got != "secret-value" {
+		t.Fatalf("getLLMFindingValue() = %q, want %q", got, "secret-value")
+	}
+}
+
+func TestGetLLMFindingValueNormalizesCandidateTabs(t *testing.T) {
+	finding := LLMFinding{
+		Line:      0,
+		Candidate: "\tsecret\tvalue\n",
+	}
+	if got := getLLMFindingValue(nil, finding); got != "secret value" {
+		t.Fatalf("getLLMFindingValue() = %q, want %q", got, "secret value")
 	}
 }

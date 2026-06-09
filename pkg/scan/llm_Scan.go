@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -116,44 +115,33 @@ func callLLMChunk(client llmHTTPClient, cfg *cfgReader.EarlybirdConfig, scanJob 
 	if err != nil {
 		return nil, fmt.Errorf("build llm request: %w", err)
 	}
+	var responseBody []byte
 	if isGeminiModel(cfg.LLMModel) {
 		setHeaderGemini(req, cfg.LLMAPIKey)
-		if resp, err := sendLLMRequest(client, req); err != nil {
+		responseBody, err = sendLLMRequest(client, req)
+		if err != nil {
 			return nil, err
 		}
-		parseGeminiResponse(resp.Body)
-	} else {
-		req.Header.Set("Accept", "application/json")
-		req.Header.Set("Authorization", "Bearer "+cfg.LLMAPIKey)
+		return parseGeminiResponse(responseBody)
+	}
+
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", "Bearer "+cfg.LLMAPIKey)
+
+	responseBody, err = sendLLMRequest(client, req)
+	if err != nil {
+		return nil, err
 	}
 
 	var completion any
-	if err := json.Unmarshal(body, &completion); err != nil {
+	if err := json.Unmarshal(responseBody, &completion); err != nil {
 		return nil, fmt.Errorf("decode llm response: %w", err)
 	}
-	// if completion.Error != nil {
-	// 	return nil, fmt.Errorf("llm api error: %s", completion.Error.Message)
-	// }
-
-	// content := ""
-	// if len(completion.Choices) > 0 {
-	// 	content = completion.Choices[0].Message.Content
-	// } else if len(completion.Candidates) > 0 {
-	// 	content = completion.Candidates[0].Content
-	// } else {
-	// 	return nil, fmt.Errorf("llm response did not include any choices or candidates")
-	// }
-
-	// var structured llmStructuredResponse
-	// if err := json.Unmarshal([]byte(content), &structured); err != nil {
-	// 	return nil, fmt.Errorf("decode llm structured response: %w", err)
-	// }
-	fmt.Printf("Response body: %s", string(body))
 
 	return nil, nil
 }
 
-func sendLLMRequest(client llmHTTPClient, req *http.Request) (*http.Response, error) {
+func sendLLMRequest(client llmHTTPClient, req *http.Request) ([]byte, error) {
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("send llm request: %w", err)
@@ -168,7 +156,7 @@ func sendLLMRequest(client llmHTTPClient, req *http.Request) (*http.Response, er
 		return nil, fmt.Errorf("llm request failed with status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
-	return resp, nil
+	return body, nil
 }
 
 func buildLLMUserPrompt(scanJob LLMJob, chunk llmFileChunk) string {
@@ -215,25 +203,37 @@ func buildLLMRequestBody(cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, chunk l
 	return json.Marshal(requestBody)
 }
 
+func getLLMFindingLineText(lines []string, lineNumber int) string {
+	if lineNumber < 1 || lineNumber > len(lines) {
+		return ""
+	}
+	return lines[lineNumber-1]
+}
+
+func getLLMFindingValue(lines []string, finding LLMFinding) string {
+	if lineText := getLLMFindingLineText(lines, finding.Line); lineText != "" {
+		return lineText
+	}
+	if finding.Candidate != "" {
+		return strings.TrimSpace(finding.Candidate)
+	}
+	return "<line unavailable>"
+}
+
 func logLLMFindings(cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, findings []LLMFinding) {
 	if len(findings) == 0 {
-		log.Printf("LLM scan found no additional credentials in %s", scanJob.FilePath)
+		fmt.Printf("LLM scan found no additional credentials in %s", scanJob.FilePath)
 		return
 	}
+	fmt.Println("LLM scan finding.")
 
-	for _, finding := range findings {
-		candidate := finding.Candidate
-		if cfg.Suppress {
-			candidate = maskValue(candidate)
-		}
-		log.Printf(
-			"LLM scan finding file=%s line=%d type=%s confidence=%s candidate=%s reason=%s",
-			scanJob.FilePath,
-			finding.Line,
-			finding.CredentialType,
-			finding.Confidence,
-			candidate,
-			finding.Reason,
-		)
+	for i, finding := range findings {
+		fmt.Println("Finding #:", i+1)
+		fmt.Println("\tFilename=", scanJob.FilePath)
+		fmt.Println("\tLine=", finding.Line)
+		fmt.Println("\tType=", finding.CredentialType)
+		fmt.Println("\tConfidence=", finding.Confidence)
+		fmt.Println("\tValue=", getLLMFindingValue(scanJob.FileLines, finding))
+		fmt.Println("\tReason=", finding.Reason)
 	}
 }

@@ -17,8 +17,11 @@
 package scan
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"regexp"
+	"strconv"
 )
 
 // Rules is the exported definition of the Rules structure for Earlybird
@@ -157,7 +160,7 @@ type llmChatCompletionResponse struct {
 }
 
 type llmGeminiCandidate struct {
-	Content string `json:"content"`
+	Content json.RawMessage `json:"content"`
 }
 
 type llmAIResponse struct {
@@ -166,12 +169,45 @@ type llmAIResponse struct {
 	Error      *llmAPIError              `json:"error,omitempty"`
 }
 
+type LLMConfidence string
+
+func (c *LLMConfidence) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" {
+		*c = ""
+		return nil
+	}
+
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		*c = LLMConfidence(s)
+		return nil
+	}
+
+	var i int64
+	if err := json.Unmarshal(data, &i); err == nil {
+		*c = LLMConfidence(strconv.FormatInt(i, 10))
+		return nil
+	}
+
+	var f float64
+	if err := json.Unmarshal(data, &f); err == nil {
+		if float64(int64(f)) == f {
+			*c = LLMConfidence(strconv.FormatInt(int64(f), 10))
+		} else {
+			*c = LLMConfidence(strconv.FormatFloat(f, 'f', -1, 64))
+		}
+		return nil
+	}
+
+	return fmt.Errorf("invalid confidence value: %s", string(data))
+}
+
 type LLMFinding struct {
-	Line           int    `json:"line"`
-	CredentialType string `json:"credential_type"`
-	Confidence     string `json:"confidence"`
-	Candidate      string `json:"candidate"`
-	Reason         string `json:"reason"`
+	Line           int           `json:"line"`
+	CredentialType string        `json:"credential_type"`
+	Confidence     LLMConfidence `json:"confidence"`
+	Candidate      string        `json:"candidate,omitempty"`
+	Reason         string        `json:"reason"`
 }
 
 type llmStructuredResponse struct {
