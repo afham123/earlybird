@@ -51,7 +51,7 @@ func TestLLMScanCallsEndpointAndParsesResponse(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(llmChatCompletionResponse{
+		_ = json.NewEncoder(w).Encode(gptLlmChatCompletionResponse{
 			Choices: []llmChatCompletionChoice{{
 				Message: llmMessage{Content: `{"findings":[{"line":2,"credential_type":"api_key","confidence":"high","candidate":"secret-value","reason":"looks like a hard-coded credential"}]}`},
 			}},
@@ -62,6 +62,69 @@ func TestLLMScanCallsEndpointAndParsesResponse(t *testing.T) {
 	cfg := &cfgReader.EarlybirdConfig{
 		EnableLLMScan:     true,
 		LLMEndpoint:       server.URL,
+		LLMAPIKey:         "test-key",
+		LLMModel:          "gpt-test",
+		LLMSystemPrompt:   "custom prompt",
+		LLMTimeoutSeconds: 5,
+		LLMMaxLines:       10,
+		LLMMaxBytes:       2048,
+	}
+
+	findings, err := llm_scan(cfg, LLMJob{
+		FileName:  "sample.env",
+		FilePath:  "/tmp/sample.env",
+		FileLines: []string{"username = app", "api_key = secret-value"},
+	})
+	if err != nil {
+		t.Fatalf("llm_scan() error = %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("llm_scan() findings = %d, want 1", len(findings))
+	}
+	if findings[0].Line != 2 {
+		t.Fatalf("finding line = %d, want 2", findings[0].Line)
+	}
+	if findings[0].CredentialType != "api_key" {
+		t.Fatalf("finding credential type = %q, want api_key", findings[0].CredentialType)
+	}
+}
+
+func TestLLMScanCallsResponsesEndpointAndParsesResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer test-key" {
+			t.Fatalf("Authorization header = %q, want Bearer test-key", got)
+		}
+
+		var req map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			t.Fatalf("Decode() error = %v", err)
+		}
+		if req["model"] != "gpt-test" {
+			t.Fatalf("request model = %v, want gpt-test", req["model"])
+		}
+		if _, ok := req["messages"]; ok {
+			t.Fatal("did not expect responses request to include messages")
+		}
+		input, ok := req["input"].([]any)
+		if !ok || len(input) != 2 {
+			t.Fatalf("input = %#v, want 2 entries", req["input"])
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"output": []map[string]any{{
+				"content": []map[string]any{{
+					"type": "output_text",
+					"text": `{"findings":[{"line":2,"credential_type":"api_key","confidence":"high","candidate":"secret-value","reason":"looks like a hard-coded credential"}]}`,
+				}},
+			}},
+		})
+	}))
+	defer server.Close()
+
+	cfg := &cfgReader.EarlybirdConfig{
+		EnableLLMScan:     true,
+		LLMEndpoint:       server.URL + "/responses",
 		LLMAPIKey:         "test-key",
 		LLMModel:          "gpt-test",
 		LLMSystemPrompt:   "custom prompt",

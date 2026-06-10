@@ -3,7 +3,6 @@ package scan
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -133,12 +132,7 @@ func callLLMChunk(client llmHTTPClient, cfg *cfgReader.EarlybirdConfig, scanJob 
 		return nil, err
 	}
 
-	var completion any
-	if err := json.Unmarshal(responseBody, &completion); err != nil {
-		return nil, fmt.Errorf("decode llm response: %w", err)
-	}
-
-	return nil, nil
+	return parseGPTResponse(responseBody)
 }
 
 func sendLLMRequest(client llmHTTPClient, req *http.Request) ([]byte, error) {
@@ -184,23 +178,7 @@ func buildLLMRequestBody(cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, chunk l
 		return buildGeminiRequestBody(cfg, scanJob, chunk)
 	}
 
-	requestBody := llmChatCompletionRequest{
-		Model:       cfg.LLMModel,
-		Temperature: 0,
-		Messages: []llmMessage{
-			{
-				Role:    "system",
-				Content: llmSystemPrompt(cfg),
-			},
-			{
-				Role:    "user",
-				Content: buildLLMUserPrompt(scanJob, chunk),
-			},
-		},
-		ResponseFormat: &llmResponseFormat{Type: "json_object"},
-	}
-
-	return json.Marshal(requestBody)
+	return buildGPTRequestBody(cfg, scanJob, chunk)
 }
 
 func logLLMFindings(cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, findings []LLMFinding) {

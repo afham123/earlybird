@@ -125,6 +125,30 @@ type llmChatCompletionRequest struct {
 	ResponseFormat *llmResponseFormat `json:"response_format,omitempty"`
 }
 
+type gptLlmResponsesTextPart struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
+type gptLlmResponsesInput struct {
+	Role    string                    `json:"role"`
+	Content []gptLlmResponsesTextPart `json:"content"`
+}
+
+type gptLlmResponsesTextFormat struct {
+	Type string `json:"type"`
+}
+
+type gptLlmResponsesText struct {
+	Format gptLlmResponsesTextFormat `json:"format"`
+}
+
+type GptLlmResponsesRequest struct {
+	Model string                 `json:"model"`
+	Input []gptLlmResponsesInput `json:"input"`
+	Text  gptLlmResponsesText    `json:"text"`
+}
+
 type GeminiRequestBody struct {
 	Contents []GeminiContent `json:"contents"`
 }
@@ -154,9 +178,18 @@ type llmAPIError struct {
 	Message string `json:"message"`
 }
 
-type llmChatCompletionResponse struct {
+type gptLlmChatCompletionResponse struct {
 	Choices []llmChatCompletionChoice `json:"choices"`
 	Error   *llmAPIError              `json:"error,omitempty"`
+}
+
+type llmResponsesOutput struct {
+	Content []gptLlmResponsesTextPart `json:"content,omitempty"`
+}
+
+type gptLlmResponsesResponse struct {
+	Output []llmResponsesOutput `json:"output,omitempty"`
+	Error  *llmAPIError         `json:"error,omitempty"`
 }
 
 type llmGeminiCandidate struct {
