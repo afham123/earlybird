@@ -191,30 +191,3 @@ func TestLLMFindingUnmarshalAcceptsNumericConfidence(t *testing.T) {
 		t.Fatalf("confidence = %q, want 80", string(finding.Confidence))
 	}
 }
-
-func TestGetLLMFindingLineTextReturnsActualLine(t *testing.T) {
-	lines := []string{"username = app", "api_key = secret-value"}
-	if got := getLLMFindingLineText(lines, 2); got != "api_key = secret-value" {
-		t.Fatalf("getLLMFindingLineText() = %q, want %q", got, "api_key = secret-value")
-	}
-}
-
-func TestGetLLMFindingValueFallsBackToCandidate(t *testing.T) {
-	finding := LLMFinding{
-		Line:      0,
-		Candidate: "secret-value",
-	}
-	if got := getLLMFindingValue([]string{"username = app", "api_key = secret-value"}, finding); got != "secret-value" {
-		t.Fatalf("getLLMFindingValue() = %q, want %q", got, "secret-value")
-	}
-}
-
-func TestGetLLMFindingValueNormalizesCandidateTabs(t *testing.T) {
-	finding := LLMFinding{
-		Line:      0,
-		Candidate: "\tsecret\tvalue\n",
-	}
-	if got := getLLMFindingValue(nil, finding); got != "secret value" {
-		t.Fatalf("getLLMFindingValue() = %q, want %q", got, "secret value")
-	}
-}

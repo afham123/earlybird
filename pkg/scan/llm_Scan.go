@@ -203,23 +203,6 @@ func buildLLMRequestBody(cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, chunk l
 	return json.Marshal(requestBody)
 }
 
-func getLLMFindingLineText(lines []string, lineNumber int) string {
-	if lineNumber < 1 || lineNumber > len(lines) {
-		return ""
-	}
-	return lines[lineNumber-1]
-}
-
-func getLLMFindingValue(lines []string, finding LLMFinding) string {
-	if lineText := getLLMFindingLineText(lines, finding.Line); lineText != "" {
-		return lineText
-	}
-	if finding.Candidate != "" {
-		return strings.TrimSpace(finding.Candidate)
-	}
-	return "<line unavailable>"
-}
-
 func logLLMFindings(cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, findings []LLMFinding) {
 	if len(findings) == 0 {
 		fmt.Printf("LLM scan found no additional credentials in %s", scanJob.FilePath)
@@ -233,7 +216,6 @@ func logLLMFindings(cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, findings []L
 		fmt.Println("\tLine=", finding.Line)
 		fmt.Println("\tType=", finding.CredentialType)
 		fmt.Println("\tConfidence=", finding.Confidence)
-		fmt.Println("\tValue=", getLLMFindingValue(scanJob.FileLines, finding))
-		fmt.Println("\tReason=", finding.Reason)
+		fmt.Println("\tDescription=", finding.Reason)
 	}
 }
