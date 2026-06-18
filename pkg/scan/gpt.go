@@ -3,12 +3,20 @@ package scan
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	cfgReader "github.com/americanexpress/earlybird/v4/pkg/config"
 )
 
-func buildGPTRequestBody(cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, chunk llmFileChunk) ([]byte, error) {
+type GptProvider struct{}
+
+func (gpt GptProvider) setHeader(req *http.Request, value string) {
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+value)
+}
+
+func (gpt GptProvider) buildRequestBody(cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, chunk llmFileChunk) ([]byte, error) {
 	if usesGPTResponsesAPI(cfg.LLMEndpoint) {
 		requestBody := GptLlmResponsesRequest{
 			Model: cfg.LLMModel,
@@ -55,7 +63,7 @@ func buildGPTRequestBody(cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, chunk l
 	return json.Marshal(requestBody)
 }
 
-func parseGPTResponse(responseBody []byte) ([]LLMFinding, error) {
+func (gpt GptProvider) parseResponse(responseBody []byte) ([]LLMFinding, error) {
 	var chatCompletion gptLlmChatCompletionResponse
 	if err := json.Unmarshal(responseBody, &chatCompletion); err != nil {
 		return nil, err

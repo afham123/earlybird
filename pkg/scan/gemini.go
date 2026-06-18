@@ -9,16 +9,18 @@ import (
 	cfgReader "github.com/americanexpress/earlybird/v4/pkg/config"
 )
 
+type GeminiProvider struct{}
+
 func isGeminiModel(model string) bool {
 	return strings.Contains(strings.ToLower(model), "gemini")
 }
 
-func setHeaderGemini(req *http.Request, value string) {
+func (gemini GeminiProvider) setHeader(req *http.Request, value string) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-goog-api-key", value)
 }
 
-func buildGeminiRequestBody(cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, chunk llmFileChunk) ([]byte, error) {
+func (gemini GeminiProvider) buildRequestBody(cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, chunk llmFileChunk) ([]byte, error) {
 
 	requestBody := GeminiRequestBody{
 		Contents: []GeminiContent{
@@ -36,7 +38,7 @@ func buildGeminiRequestBody(cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, chun
 	return json.Marshal(requestBody)
 }
 
-func parseGeminiResponse(responseBody []byte) ([]LLMFinding, error) {
+func (gemini GeminiProvider) parseResponse(responseBody []byte) ([]LLMFinding, error) {
 	// var completion any
 	var completion GeminiResponseBody
 	if err := json.Unmarshal(responseBody, &completion); err != nil {

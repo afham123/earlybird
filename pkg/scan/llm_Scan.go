@@ -15,6 +15,21 @@ import (
 
 var defaultLLMHTTPClient llmHTTPClient = &http.Client{}
 
+type LLMProvider interface {
+	setHeader(req *http.Request, apiKey string)
+	buildRequestBody(cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, chunk llmFileChunk) ([]byte, error)
+	parseResponse(responseBody []byte) ([]LLMFinding, error)
+}
+
+func getLLMProvider(cfg *cfgReader.EarlybirdConfig) LLMProvider {
+	switch {
+	case isGeminiModel(cfg.LLMModel):
+		return GeminiProvider{}
+	default:
+		return GptProvider{}
+	}
+}
+
 func llmSystemPrompt(cfg *cfgReader.EarlybirdConfig) string {
 	if cfg != nil && cfg.LLMSystemPrompt != "" {
 		return cfg.LLMSystemPrompt
@@ -102,7 +117,8 @@ func buildLLMFileChunks(fileLines []string, maxLines int, maxBytes int) []llmFil
 }
 
 func callLLMChunk(client llmHTTPClient, cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, chunk llmFileChunk) ([]LLMFinding, error) {
-	payload, err := buildLLMRequestBody(cfg, scanJob, chunk)
+	provider := getLLMProvider(cfg)
+	payload, err := provider.buildRequestBody(cfg, scanJob, chunk)
 	if err != nil {
 		return nil, err
 	}
@@ -114,25 +130,13 @@ func callLLMChunk(client llmHTTPClient, cfg *cfgReader.EarlybirdConfig, scanJob 
 	if err != nil {
 		return nil, fmt.Errorf("build llm request: %w", err)
 	}
+	provider.setHeader(req, cfg.LLMAPIKey)
 	var responseBody []byte
-	if isGeminiModel(cfg.LLMModel) {
-		setHeaderGemini(req, cfg.LLMAPIKey)
-		responseBody, err = sendLLMRequest(client, req)
-		if err != nil {
-			return nil, err
-		}
-		return parseGeminiResponse(responseBody)
-	}
-
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", "Bearer "+cfg.LLMAPIKey)
-
 	responseBody, err = sendLLMRequest(client, req)
 	if err != nil {
 		return nil, err
 	}
-
-	return parseGPTResponse(responseBody)
+	return provider.parseResponse(responseBody)
 }
 
 func sendLLMRequest(client llmHTTPClient, req *http.Request) ([]byte, error) {
@@ -171,14 +175,6 @@ func buildLLMUserPrompt(scanJob LLMJob, chunk llmFileChunk) string {
 	}
 
 	return builder.String()
-}
-
-func buildLLMRequestBody(cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, chunk llmFileChunk) ([]byte, error) {
-	if isGeminiModel(cfg.LLMModel) {
-		return buildGeminiRequestBody(cfg, scanJob, chunk)
-	}
-
-	return buildGPTRequestBody(cfg, scanJob, chunk)
 }
 
 func logLLMFindings(cfg *cfgReader.EarlybirdConfig, scanJob LLMJob, findings []LLMFinding) {
