@@ -50,19 +50,21 @@ type LLMProvider interface {
 
 ## Configuration
 
-LLM scanning is controlled via the following configuration parameters:
+LLM scanning is controlled via the following configuration parameters. Fields marked as `No` are optional because EarlyBird applies a default value when they are not provided.
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `EnableLLMScan` | bool | Yes | Enables/disables LLM-based scanning |
-| `LLMEndpoint` | string | Yes | The API endpoint URL for the LLM service |
-| `LLMAPIKey` | string | Yes | API key for authentication (via `EARLYBIRD_LLM_API_KEY` or `OPENAI_API_KEY` env var) |
-| `LLMModel` | string | Yes | Model identifier (e.g., `gpt-4`, `gpt-4o`, `gemini-2.0-flash`) |
-| `LLMSystemPrompt` | string | No | Custom system prompt (defaults to built-in prompt) |
-| `LLMTimeoutSeconds` | int | Yes | Request timeout in seconds |
-| `LLMMaxLines` | int | Yes | Maximum lines per chunk (e.g., 50-100) |
-| `LLMMaxBytes` | int | Yes | Maximum bytes per chunk (e.g., 8000-16000) |
-| `LLMFailClosed` | bool | No | If true, scanning fails if LLM scan fails; if false, scanning continues |
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `EnableLLMScan` | bool | Yes | `false` | Enables/disables LLM-based scanning |
+| `LLMEndpoint` | string | Yes | None | The API endpoint URL for the LLM service |
+| `LLMAPIKey` | string | Yes | None | API key for authentication (via `EARLYBIRD_LLM_API_KEY` or `OPENAI_API_KEY` env var) |
+| `LLMModel` | string | Yes | None | Model identifier (e.g., `gpt-4`, `gpt-4o`, `gemini-2.0-flash`) |
+| `LLMSystemPrompt` | string | No | `cfgReader.DefaultLLMSystemPrompt` | Custom system prompt; if omitted, EarlyBird uses the built-in default prompt |
+| `LLMTimeoutSeconds` | int | No | `30` | Request timeout in seconds |
+| `LLMMaxLines` | int | No | `200` | Maximum lines per chunk (e.g., 50-100) |
+| `LLMMaxBytes` | int | No | `16000` | Maximum bytes per chunk (e.g., 8000-16000) |
+| `LLMFailClosed` | bool | No | `false` | If true, scanning fails if LLM scan fails; if false, scanning continues |
+
+The default values above match the CLI defaults used by EarlyBird when these options are not passed.
 
 ### Configuration File Example
 
