@@ -216,7 +216,7 @@ func (eb *EarlybirdCfg) ConfigInit() {
 	eb.Config.ShowSolutions = *ptrShowSolutions
 	eb.Config.EnableLLMScan = *ptrEnableLLMScan
 	eb.Config.LLMEndpoint = *ptrLLMEndpoint
-	eb.Config.LLMAPIKey = firstNonEmpty(os.Getenv("EARLYBIRD_LLM_API_KEY"), os.Getenv("OPENAI_API_KEY"))
+	eb.Config.LLMAPIKey = os.Getenv("EARLYBIRD_LLM_API_KEY")
 	eb.Config.LLMModel = *ptrLLMModel
 	eb.Config.LLMSystemPrompt = *ptrLLMSystemPrompt
 	eb.Config.LLMTimeoutSeconds = *ptrLLMTimeoutSeconds

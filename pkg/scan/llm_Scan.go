@@ -72,7 +72,7 @@ func validateLLMConfig(cfg *cfgReader.EarlybirdConfig) error {
 		return fmt.Errorf("llm endpoint is required")
 	}
 	if cfg.LLMAPIKey == "" {
-		return fmt.Errorf("llm api key is required: set EARLYBIRD_LLM_API_KEY or OPENAI_API_KEY")
+		return fmt.Errorf("llm api key is required: set EARLYBIRD_LLM_API_KEY")
 	}
 	if cfg.LLMModel == "" {
 		return fmt.Errorf("llm model is required")

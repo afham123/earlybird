@@ -56,7 +56,7 @@ LLM scanning is controlled via the following configuration parameters. Fields ma
 |-----------|------|----------|---------|-------------|
 | `EnableLLMScan` | bool | Yes | `false` | Enables/disables LLM-based scanning |
 | `LLMEndpoint` | string | Yes | None | The API endpoint URL for the LLM service |
-| `LLMAPIKey` | string | Yes | None | API key for authentication (via `EARLYBIRD_LLM_API_KEY` or `OPENAI_API_KEY` env var) |
+| `LLMAPIKey` | string | Yes | None | API key for authentication (via `EARLYBIRD_LLM_API_KEY` env var) |
 | `LLMModel` | string | Yes | None | Model identifier (e.g., `gpt-4`, `gpt-4o`, `gemini-2.0-flash`) |
 | `LLMSystemPrompt` | string | No | `cfgReader.DefaultLLMSystemPrompt` | Custom system prompt; if omitted, EarlyBird uses the built-in default prompt |
 | `LLMTimeoutSeconds` | int | No | `30` | Request timeout in seconds |
@@ -72,7 +72,7 @@ The default values above match the CLI defaults used by EarlyBird when these opt
 {
   "EnableLLMScan": true,
   "LLMEndpoint": "https://api.openai.com/v1/chat/completions",
-  "LLMAPIKey": "${OPENAI_API_KEY}",
+    "LLMAPIKey": "${EARLYBIRD_LLM_API_KEY}",
   "LLMModel": "gpt-4o",
   "LLMSystemPrompt": "You analyze source code for likely hard-coded credentials or secrets...",
   "LLMTimeoutSeconds": 30,
@@ -84,8 +84,7 @@ The default values above match the CLI defaults used by EarlyBird when these opt
 
 ### Environment Variables
 
-- `EARLYBIRD_LLM_API_KEY`: Primary LLM API key
-- `OPENAI_API_KEY`: Fallback LLM API key (used if EARLYBIRD_LLM_API_KEY is not set)
+- `EARLYBIRD_LLM_API_KEY`: LLM API key
 
 ## Supported Models
 
@@ -104,7 +103,7 @@ The default values above match the CLI defaults used by EarlyBird when these opt
 {
   "LLMEndpoint": "https://api.openai.com/v1/chat/completions",
   "LLMModel": "gpt-4o",
-  "LLMAPIKey": "${OPENAI_API_KEY}"
+    "LLMAPIKey": "${EARLYBIRD_LLM_API_KEY}"
 }
 ```
 
@@ -394,7 +393,7 @@ LLM findings do NOT apply false positive filters, labels, or post-processing rul
 - Set `EnableLLMScan: true` in configuration
 
 **Issue**: "llm api key is required"
-- Set `EARLYBIRD_LLM_API_KEY` or `OPENAI_API_KEY` environment variable
+- Set `EARLYBIRD_LLM_API_KEY` environment variable
 
 **Issue**: Timeout errors
 - Increase `LLMTimeoutSeconds`
@@ -409,7 +408,7 @@ LLM findings do NOT apply false positive filters, labels, or post-processing rul
 ## Example: Running LLM Scan
 
 ```bash
-export OPENAI_API_KEY=sk-your-key-here
+export EARLYBIRD_LLM_API_KEY=sk-your-key-here
 
 go-earlybird --path=/project/src \
   --config=config/earlybird.json
